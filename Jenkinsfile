@@ -2,65 +2,58 @@ pipeline {
     agent any
 
     environment {
-        // Docker Hub repository
         DOCKER_IMAGE = 'rithxdtt/dev-jenkins'
-
-        // Every Jenkins build gets a unique Docker tag
         IMAGE_TAG = "${BUILD_NUMBER}"
-
-        // Jenkins Credentials ID
         DOCKER_CREDENTIALS = 'dockerhub-credentials'
     }
 
     stages {
 
         // ==========================================
-        // 1. CHECKOUT SOURCE CODE
+        // 1. CHECKOUT
         // ==========================================
         stage('Checkout') {
             steps {
-                echo 'Checking out source code from GitHub...'
-
+                echo 'Checking out Next.js source code...'
                 checkout scm
             }
         }
 
         // ==========================================
-        // 2. BUILD SPRING BOOT
+        // 2. INSTALL DEPENDENCIES
+        // ==========================================
+        stage('Install Dependencies') {
+            steps {
+                echo 'Installing Node.js dependencies...'
+
+                sh '''
+                    npm ci
+                '''
+            }
+        }
+
+        // ==========================================
+        // 3. LINT
+        // ==========================================
+        stage('Lint') {
+            steps {
+                echo 'Running lint...'
+
+                sh '''
+                    npm run lint
+                '''
+            }
+        }
+
+        // ==========================================
+        // 4. BUILD NEXT.JS
         // ==========================================
         stage('Build') {
             steps {
-                echo 'Building Spring Boot application...'
+                echo 'Building Next.js application...'
 
                 sh '''
-                    chmod +x gradlew
-                    ./gradlew clean classes
-                '''
-            }
-        }
-
-        // ==========================================
-        // 3. RUN TESTS
-        // ==========================================
-        stage('Test') {
-            steps {
-                echo 'Running tests...'
-
-                sh '''
-                    ./gradlew test
-                '''
-            }
-        }
-
-        // ==========================================
-        // 4. PACKAGE APPLICATION
-        // ==========================================
-        stage('Package') {
-            steps {
-                echo 'Creating Spring Boot JAR...'
-
-                sh '''
-                    ./gradlew bootJar -x test
+                    npm run build
                 '''
             }
         }
@@ -70,8 +63,7 @@ pipeline {
         // ==========================================
         stage('Docker Build') {
             steps {
-                echo "Building Docker image..."
-                echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                echo "Building ${DOCKER_IMAGE}:${IMAGE_TAG}..."
 
                 sh '''
                     docker build \
@@ -82,11 +74,10 @@ pipeline {
         }
 
         // ==========================================
-        // 6. LOGIN & PUSH TO DOCKER HUB
+        // 6. PUSH TO DOCKER HUB
         // ==========================================
         stage('Docker Push') {
             steps {
-                echo 'Logging into Docker Hub...'
 
                 withCredentials([
                     usernamePassword(
@@ -102,52 +93,31 @@ pipeline {
                         -u "$DOCKER_USERNAME" \
                         --password-stdin
 
-                        echo "Pushing Docker image..."
-
                         docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
                     '''
                 }
             }
         }
-
-        // ==========================================
-        // 7. VERIFY
-        // ==========================================
-        stage('Verify') {
-            steps {
-                echo 'CI pipeline completed successfully.'
-                echo "Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
-            }
-        }
     }
 
-    // ==============================================
-    // AFTER PIPELINE
-    // ==============================================
     post {
 
         success {
-            echo '=========================================='
-            echo '        CI PIPELINE SUCCESS'
-            echo '=========================================='
-            echo "Build Number: ${BUILD_NUMBER}"
-            echo "Docker Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
-            echo 'Image pushed successfully to Docker Hub.'
-            echo '=========================================='
+            echo '===================================='
+            echo 'CI PIPELINE SUCCESS'
+            echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+            echo '===================================='
         }
 
         failure {
-            echo '=========================================='
-            echo '         CI PIPELINE FAILED'
-            echo '=========================================='
-            echo "Build Number: ${BUILD_NUMBER}"
-            echo 'Check Jenkins Console Output for details.'
-            echo '=========================================='
+            echo '===================================='
+            echo 'CI PIPELINE FAILED'
+            echo "Build: ${BUILD_NUMBER}"
+            echo '===================================='
         }
 
         always {
-            echo 'Cleaning Jenkins workspace...'
-
+            echo 'Cleaning workspace...'
             deleteDir()
         }
     }
