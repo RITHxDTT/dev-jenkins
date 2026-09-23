@@ -1,30 +1,61 @@
 pipeline {
     agent any
 
+    // =========================================================
+    // TOOLS
+    // =========================================================
+    // Requires Jenkins NodeJS Plugin.
+    // Manage Jenkins -> Tools -> NodeJS installations
+    // Name must be exactly: node-22
+    tools {
+        nodejs 'node-22'
+    }
+
+    // =========================================================
+    // ENVIRONMENT VARIABLES
+    // =========================================================
     environment {
+
+        // Docker Hub repository
         DOCKER_IMAGE = 'rithxdtt/dev-jenkins'
+
+        // Jenkins automatically provides BUILD_NUMBER.
+        // Example:
+        // Build #5 -> rithxdtt/dev-jenkins:5
         IMAGE_TAG = "${BUILD_NUMBER}"
+
+        // Jenkins credential ID
         DOCKER_CREDENTIALS = 'dockerhub-credentials'
     }
 
     stages {
 
-        // ==========================================
-        // 1. CHECKOUT
-        // ==========================================
-        stage('Checkout') {
+        // =====================================================
+        // 1. VERIFY ENVIRONMENT
+        // =====================================================
+        stage('Verify Environment') {
             steps {
-                echo 'Checking out Next.js source code...'
-                checkout scm
+                echo 'Checking build environment...'
+
+                sh '''
+                    echo "Node version:"
+                    node --version
+
+                    echo "NPM version:"
+                    npm --version
+
+                    echo "Git version:"
+                    git --version
+                '''
             }
         }
 
-        // ==========================================
+        // =====================================================
         // 2. INSTALL DEPENDENCIES
-        // ==========================================
+        // =====================================================
         stage('Install Dependencies') {
             steps {
-                echo 'Installing Node.js dependencies...'
+                echo 'Installing Next.js dependencies...'
 
                 sh '''
                     npm ci
@@ -32,12 +63,12 @@ pipeline {
             }
         }
 
-        // ==========================================
+        // =====================================================
         // 3. LINT
-        // ==========================================
+        // =====================================================
         stage('Lint') {
             steps {
-                echo 'Running lint...'
+                echo 'Running ESLint...'
 
                 sh '''
                     npm run lint
@@ -45,9 +76,9 @@ pipeline {
             }
         }
 
-        // ==========================================
+        // =====================================================
         // 4. BUILD NEXT.JS
-        // ==========================================
+        // =====================================================
         stage('Build') {
             steps {
                 echo 'Building Next.js application...'
@@ -58,12 +89,13 @@ pipeline {
             }
         }
 
-        // ==========================================
+        // =====================================================
         // 5. BUILD DOCKER IMAGE
-        // ==========================================
+        // =====================================================
         stage('Docker Build') {
             steps {
-                echo "Building ${DOCKER_IMAGE}:${IMAGE_TAG}..."
+                echo 'Building Docker image...'
+                echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
 
                 sh '''
                     docker build \
@@ -73,11 +105,12 @@ pipeline {
             }
         }
 
-        // ==========================================
-        // 6. PUSH TO DOCKER HUB
-        // ==========================================
-        stage('Docker Push') {
+        // =====================================================
+        // 6. LOGIN TO DOCKER HUB
+        // =====================================================
+        stage('Docker Login') {
             steps {
+                echo 'Logging into Docker Hub...'
 
                 withCredentials([
                     usernamePassword(
@@ -92,32 +125,64 @@ pipeline {
                         docker login \
                         -u "$DOCKER_USERNAME" \
                         --password-stdin
-
-                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
                     '''
                 }
             }
         }
+
+        // =====================================================
+        // 7. PUSH DOCKER IMAGE
+        // =====================================================
+        stage('Docker Push') {
+            steps {
+                echo 'Pushing Docker image to Docker Hub...'
+
+                sh '''
+                    docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        // =====================================================
+        // 8. VERIFY PIPELINE RESULT
+        // =====================================================
+        stage('Verify') {
+            steps {
+                echo '========================================='
+                echo 'Application build completed.'
+                echo "Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                echo '========================================='
+            }
+        }
     }
 
+    // =========================================================
+    // POST ACTIONS
+    // =========================================================
     post {
 
         success {
-            echo '===================================='
-            echo 'CI PIPELINE SUCCESS'
-            echo "Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
-            echo '===================================='
+            echo '========================================='
+            echo '          CI PIPELINE SUCCESS'
+            echo '========================================='
+            echo "Build Number : ${BUILD_NUMBER}"
+            echo "Docker Image : ${DOCKER_IMAGE}:${IMAGE_TAG}"
+            echo 'Docker image pushed successfully.'
+            echo '========================================='
         }
 
         failure {
-            echo '===================================='
-            echo 'CI PIPELINE FAILED'
-            echo "Build: ${BUILD_NUMBER}"
-            echo '===================================='
+            echo '========================================='
+            echo '           CI PIPELINE FAILED'
+            echo '========================================='
+            echo "Build Number : ${BUILD_NUMBER}"
+            echo 'Check Jenkins Console Output.'
+            echo '========================================='
         }
 
         always {
-            echo 'Cleaning workspace...'
+            echo 'Cleaning Jenkins workspace...'
+
             deleteDir()
         }
     }
