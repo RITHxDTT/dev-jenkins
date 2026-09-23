@@ -17,7 +17,7 @@ pipeline {
     environment {
 
         // Docker Hub repository
-        DOCKER_IMAGE = 'rithxdtt/dev-jenkins'
+        DOCKER_IMAGE = 'idkisme/dev-homework'
 
        
         IMAGE_TAG = "${BUILD_NUMBER}"
