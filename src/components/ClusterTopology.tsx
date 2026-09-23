@@ -97,7 +97,7 @@ export default function ClusterTopology() {
     if (runningPods.length === 0) return;
 
     const targetPod = runningPods[Math.floor(Math.random() * runningPods.length)];
-    setChaosLog(`💥 CHAOS MONKEY INJECTED: SIGKILL sent to ${targetPod.name} on ${targetPod.node}`);
+    setChaosLog(` CHAOS MONKEY INJECTED: SIGKILL sent to ${targetPod.name} on ${targetPod.node}`);
 
     // Mark target as CrashLoopBackOff / Terminating
     setPods((prev) =>
@@ -107,14 +107,16 @@ export default function ClusterTopology() {
     // After 1.5 seconds, auto-heal replica replacement
     setTimeout(() => {
       soundManager.playDeploy();
-      setChaosLog(`🔄 K8s REPLICA-SET HEALING: Spawning new healthy pod replica for ${targetPod.name.split('-')[0]}...`);
+      const baseName = targetPod?.name ? targetPod.name.split('-')[0] : 'service';
+      setChaosLog(`🔄 K8s REPLICA-SET HEALING: Spawning new healthy pod replica for ${baseName}...`);
 
       setPods((prev) =>
         prev.map((p) => {
           if (p.id === targetPod.id) {
+            const currentBase = p?.name ? p.name.split('-')[0] : 'service';
             return {
               ...p,
-              name: `${p.name.split('-')[0]}-${Math.random().toString(36).substring(2, 7)}`,
+              name: `${currentBase}-${Math.random().toString(36).substring(2, 7)}`,
               status: 'ContainerCreating',
               age: '1s',
             };
@@ -128,7 +130,7 @@ export default function ClusterTopology() {
           prev.map((p) => (p.id === targetPod.id ? { ...p, status: 'Running' } : p))
         );
         soundManager.playSuccess();
-        setChaosLog(`✅ REPLICA-SET RECOVERED: Cluster topology 100% nominal. Zero traffic dropped.`);
+        setChaosLog(` REPLICA-SET RECOVERED: Cluster topology 100% nominal. Zero traffic dropped.`);
       }, 1500);
     }, 1800);
   };

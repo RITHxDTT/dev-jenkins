@@ -395,7 +395,7 @@ export default function PipelineVisualizer() {
 
                 {/* Stage Title */}
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', marginBottom: '0.3rem' }}>
-                  {stage.name.split('. ')[1]}
+                  {stage?.name?.includes('. ') ? stage.name.split('. ')[1] : stage?.name || 'Stage'}
                 </div>
 
                 <div style={{
