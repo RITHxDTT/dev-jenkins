@@ -19,9 +19,7 @@ pipeline {
         // Docker Hub repository
         DOCKER_IMAGE = 'rithxdtt/dev-jenkins'
 
-        // Jenkins automatically provides BUILD_NUMBER.
-        // Example:
-        // Build #5 -> rithxdtt/dev-jenkins:5
+       
         IMAGE_TAG = "${BUILD_NUMBER}"
 
         // Jenkins credential ID
